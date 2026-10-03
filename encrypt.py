@@ -8,10 +8,7 @@ HEADER_SIZE = 64  # 512 бит
 
 
 def xor_with_key(data: bytes, key: bytes, offset_bits: int) -> bytes:
-    """
-    Выполняет побитовый XOR данных с циклически повторяющимся ключом.
-    Начало ключа смещается на offset_bits.
-    """
+    """Побитовый XOR данных с циклически повторяющимся ключом."""
     if not key:
         raise ValueError("Файл ключа не должен быть пустым")
 
@@ -39,25 +36,23 @@ def xor_with_key(data: bytes, key: bytes, offset_bits: int) -> bytes:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Шифрование файла XOR с побитовым смещением ключа"
+        description="Шифрование файла с использованием XOR"
     )
 
     parser.add_argument(
         "input_file",
         help="Путь к исходному файлу"
     )
+
     parser.add_argument(
         "key_file",
         help="Путь к файлу ключа"
     )
-    parser.add_argument(
-        "output_file",
-        help="Путь к зашифрованному файлу"
-    )
+
     parser.add_argument(
         "offset",
         type=int,
-        help="Смещение начала ключа в битах"
+        help="Смещение ключа в битах"
     )
 
     args = parser.parse_args()
@@ -67,24 +62,41 @@ def main():
 
     input_path = Path(args.input_file)
     key_path = Path(args.key_file)
-    output_path = Path(args.output_file)
+
+    if not input_path.is_file():
+        raise FileNotFoundError(
+            f"Исходный файл не найден: {input_path}"
+        )
+
+    if not key_path.is_file():
+        raise FileNotFoundError(
+            f"Файл ключа не найден: {key_path}"
+        )
 
     data = input_path.read_bytes()
     key = key_path.read_bytes()
 
     encrypted_data = xor_with_key(
-        data=data,
-        key=key,
-        offset_bits=args.offset
+        data,
+        key,
+        args.offset
     )
 
-    # Сохраняем смещение в виде 512-битного беззнакового числа.
     try:
-        header = args.offset.to_bytes(HEADER_SIZE, byteorder="big")
+        # Сохраняем смещение в первых 64 байтах.
+        header = args.offset.to_bytes(
+            HEADER_SIZE,
+            byteorder="big",
+            signed=False
+        )
     except OverflowError:
         raise ValueError(
             "Смещение не помещается в 512 бит"
         )
+
+    output_path = input_path.with_name(
+        input_path.name + ".crypt"
+    )
 
     output_path.write_bytes(header + encrypted_data)
 
